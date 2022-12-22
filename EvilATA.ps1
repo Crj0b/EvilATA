@@ -647,7 +647,7 @@ function Get-ATAUniqueEntity {
                     $result_profile
                 }
 
-                if ($result.type -eq "computer") {
+                elseif ($result.type -eq "computer") {
                     $Identity = Get-NetComputer $Id
                     $result_profile = Invoke-RestMethod -Uri "https://$ATACenter/api/management/uniqueEntities/$Id/profile" -Method Get -UseDefaultCredentials
 
