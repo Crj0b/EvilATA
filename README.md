@@ -84,6 +84,80 @@ PS c:\> Set-ATACenterURL "ata.yourdomain.com"
 
 ## Usage
 
+### 如果您是企业安全人员（Using EvilATA as an enterprise security staff）
+
+以企业安全人员使用 EvilATA 非常简单，其默认已具备了域内查询权限和 ATA 访问权限。只需载入 EvilATA 库，确保 PowerView 没有被拦截即可。
+
+```
+PS c:\> . .\EvilATA.ps1
+PS c:\> Set-ATACenterURL "ata.yourdomain.com"
+PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid
+PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid -Profile
+```
+
+EvilATA 提供了 5 项基础 Cmd-Let（即 Abusing Advanced Threat Analytics PowerShell module 所提供的）：
+
+```
+Get-ATAMonitoringAlert
+Get-ATAStatus
+Get-ATASuspiciousActivity
+Get-ATAUniqueEntity
+Set-ATASuspiciousActivity
+PS c:\> man Get-ATAUniqueEntity
+
+NAME
+    Get-ATAUniqueEntity
+
+SYNOPSIS
+    Get-ATAUniqueEntity is used to retrieve information around unique entities in ATA.
+
+
+    -------------------------- EXAMPLE 1 --------------------------
+
+    PS C:\>Get-ATAUniqueEntity -Id ff336d33-81f4-458c-b70b-33f0070ffb20
+
+    DnsName                    : 2012R2-DC1.contoso.com
+    DomainController           : @{IsGlobalCatalog=True; IsPrimary=True; IsReadOnly=False}
+    IpAddress                  :
+    IsDomainController         : True
+    IsServer                   : True
+    OperatingSystemDisplayName : Windows Server 2012 R2 Datacenter, 6.3 (9600)
+    SystemDisplayName          : 2012R2-DC1
+    BadPasswordTime            :
+    ConstrainedDelegationSpns  : {}
+    ExpiryTime                 :
+    IsDisabled                 : False
+    IsExpired                  : False
+    IsHoneytoken               : False
+    IsLocked                   : False
+    IsPasswordExpired          : False
+    IsPasswordFarExpiry        : False
+    IsPasswordNeverExpires     : False
+    IsPasswordNotRequired      : False
+    IsSmartcardRequired        : False
+    PasswordExpiryTime         :
+    PasswordUpdateTime         : 2017-04-17T17:59:57.0826645Z
+    Spns                       : {Dfsr-12F9A27C-BF97-4787-9364-D31B6C55EB04/2012R2-DC1.contoso.com, ldap/2012R2-DC1.contoso.com/ForestDnsZones.contoso.com,
+                                 ldap/2012R2-DC1.contoso.com/DomainDnsZones.contoso.com, TERMSRV/2012R2-DC1...}
+    UpnName                    :
+    Description                :
+    IsSensitive                : True
+    SamName                    : 2012R2-DC1$
+    DomainId                   : 7c915dca-0591-4abe-84c6-2522466bed4d
+    CanonicalName              : contoso.com/Domain Controllers/2012R2-DC1
+    CreationTime               : 2017-04-17T17:59:40Z
+    DistinguishedName          : CN=2012R2-DC1,OU=Domain Controllers,DC=contoso,DC=com
+    IsDeleted                  : False
+    IsNew                      : False
+    Sid                        : S-1-5-21-3599243929-1086515894-1402892407-1001
+    SystemSubDisplayName       :
+    Id                         : ff336d33-81f4-458c-b70b-33f0070ffb20
+    IsPartial                  : False
+    Type                       : Computer
+
+    The above example retrieves information about the specified unique entity.
+```
+
 ### 在已加域计算机上利用（Abusing EvilATA on domain-joined computers）
 
 在已加域计算机上利用 EvilATA 比较简单，在已加域计算机上我们默认已具备域内查询权限（即 PowerView 可正常工作）。
