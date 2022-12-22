@@ -95,14 +95,14 @@ PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid
 PS c:\> Get-ATAUniqueEntity (Get-NetUser administrator).objectguid -Profile
 ```
 
-EvilATA 提供了 5 项基础 Cmd-Let（即 Abusing Advanced Threat Analytics PowerShell module 所提供的）：
+EvilATA 提供了 4 项基础 Cmd-Let（即 Abusing Advanced Threat Analytics PowerShell module 所提供的）：
 
 ```
 Get-ATAMonitoringAlert
 Get-ATAStatus
 Get-ATASuspiciousActivity
 Get-ATAUniqueEntity
-Set-ATASuspiciousActivity
+
 PS c:\> man Get-ATAUniqueEntity
 
 NAME
